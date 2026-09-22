@@ -75,7 +75,7 @@ img.ph{object-fit:cover;display:block}
 .t-rit{background:#F3E3C6}
 .t-tok{background:var(--gold-l)}
 .t-prg{background:var(--lagoon-l)}
-.t-tim{background:#DDE6F0}
+.t-urg{background:var(--calm-l);box-shadow:inset 0 0 0 5px var(--calm);color:var(--ink);text-decoration:none}
 
 /* rituel */
 .strip{display:flex;align-items:center;gap:6px;padding:4px 20px 8px;overflow-x:auto}
@@ -478,7 +478,7 @@ R.home=()=>{const s=stu();app(bar()+`<main class="main"><div class="tiles">
 <button class="tile t-rit" data-act="ritual"><span class="ti">🌅</span><b>Mon rituel d'accueil</b></button>
 <button class="tile t-tok" data-act="tokens"><span class="ti">${tokenVis(s)}</span><b>Mes jetons</b><small>${s.cur.t} sur ${s.tokens}</small></button>
 <button class="tile t-prg" data-act="program"><span class="ti">🗓️</span><b>Mon programme</b></button>
-<button class="tile t-tim" data-act="timer"><span class="ti">⏳</span><b>Sablier</b></button>
+<a class="tile t-urg" href="https://christophejean13008.github.io/adaptemotion/adaptemotion.html" target="_blank" rel="noopener" data-act="urgence"><span class="ti">❤️‍🩹</span><b>Urgence</b><small>Je sens que ça monte</small></a>
 </div></main>`)};
 
 /* --- Rituel d'accueil --- */
@@ -767,6 +767,7 @@ A.endreward=()=>{const s=stu();s.cur.t=0;s.cur.rid=null;s.cur.next=false;save();
 A.program=()=>go('program');
 A.pdone=d=>{const s=stu(),p=s.program.find(x=>x.id===d.id);p.done=!p.done;save();if(p.done)sndToken();go('program')};
 A.timer=()=>go('timer');
+A.urgence=()=>{const s=stu();if(!s)return;S.log.push({t:Date.now(),sid:s.id,type:'urgence',before:null,after:null,tools:'Adaptémotion',dur:null,note:''});save()};
 A.tmin=d=>{tpage.m=+d.m;go('timer')};
 A.tstyle=d=>{tpage.style=d.v;go('timer')};
 /* pause calme */
