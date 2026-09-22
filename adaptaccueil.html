@@ -68,7 +68,7 @@ img.ph{object-fit:cover;display:block}
 /* accueil élève */
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:20px;height:100%;min-height:420px}
 .tile{border:0;border-radius:var(--r-big);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:1.6rem;padding:20px;position:relative}
-.tile b{font-weight:750}
+.tile b{font-weight:750;text-align:center}
 .tile small{font-size:1.1rem;font-weight:650;opacity:.75}
 .tile .ti{font-size:4.6rem;line-height:1;display:grid;place-items:center}
 .tile .ti img{width:96px;height:96px;border-radius:50%}
@@ -348,7 +348,8 @@ function defRitual(){return [
  {type:'travail',icon:'✏️',label:'Je me mets au travail',min:0}
 ].map(s=>({id:uid(),on:true,photo:null,...s}))}
 function defProgram(){return [['👋','Accueil'],['📖','Lecture'],['🔢','Maths'],['🌳','Récréation'],['✏️','Écriture'],['🍽️','Cantine']].map(([i,l])=>({id:uid(),icon:i,label:l,photo:null,done:false}))}
-function newStudent(name){return {id:uid(),name,photo:null,tokens:3,tokenIcon:'⭐',tokenPhoto:null,give:'long',auto:false,
+function defTasks(){return TASKS.map(([i,l])=>({id:uid(),icon:i,label:l,photo:null,on:true}))}
+function newStudent(name){return {id:uid(),name,tasks:defTasks(),photo:null,tokens:3,tokenIcon:'⭐',tokenPhoto:null,give:'long',auto:false,
  timerStyle:'sablier',showClock:true,calmMin:3,rewardMin:3,workMin:5,voice:true,sound:true,
  ritual:defRitual(),program:defProgram(),progDate:'',rein:null,cur:{t:0,rid:null,task:null}}}
 function defState(){
@@ -361,6 +362,7 @@ function defState(){
 let S=null;
 try{S=JSON.parse(localStorage.getItem(LS))}catch(e){}
 if(!S||!S.v)S=defState();
+S.students.forEach(x=>{if(!x.tasks)x.tasks=defTasks()});
 function save(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){toast('Mémoire pleine : exportez une sauvegarde')}}
 
 /* Photos : IndexedDB */
@@ -476,7 +478,7 @@ ${S.students.map(s=>`<button class="kid" data-act="pick" data-id="${s.id}">${av(
 
 R.home=()=>{const s=stu();app(bar()+`<main class="main"><div class="tiles">
 <button class="tile t-rit" data-act="ritual"><span class="ti">🌅</span><b>Mon rituel d'accueil</b></button>
-<button class="tile t-tok" data-act="tokens"><span class="ti">${tokenVis(s)}</span><b>Mes jetons</b><small>${s.cur.t} sur ${s.tokens}</small></button>
+<button class="tile t-tok" data-act="tokens"><span class="ti">${tokenVis(s)}</span><b>Économie de jetons/Mise au travail</b><small>${s.cur.t} sur ${s.tokens}</small></button>
 <button class="tile t-prg" data-act="program"><span class="ti">🗓️</span><b>Mon programme</b></button>
 <a class="tile t-urg" href="https://christophejean13008.github.io/adaptemotion/adaptemotion.html" target="_blank" rel="noopener" data-act="urgence"><span class="ti">❤️‍🩹</span><b>Urgence</b><small>Je sens que ça monte</small></a>
 </div></main>`)};
@@ -531,10 +533,10 @@ function finishRitual(){const s=stu();S.log.push({t:rit.start||Date.now(),sid:s.
 /* --- Économie de jetons --- */
 let work=null;
 R.tokens=()=>{const s=stu();if(s.cur.day!==today()){s.cur.day=today();s.cur.t=0;s.cur.rid=null;s.cur.next=false;save()}if(s.cur.next){s.cur.t=0;s.cur.rid=null;s.cur.next=false;save()}if(s.cur.t>s.tokens){s.cur.t=s.tokens;save()}const r=S.reinf.find(x=>x.id===s.cur.rid);
- if(!r){app(bar('Mes jetons')+`<main class="main"><h1 class="q">Je travaille pour…</h1>${reinfGrid(s,'setrein')}</main>`);say('Je travaille pour quoi ?');return}
+ if(!r){app(bar('Économie de jetons/Mise au travail')+`<main class="main"><h1 class="q">Je travaille pour…</h1>${reinfGrid(s,'setrein')}</main>`);say('Je travaille pour quoi ?');return}
  const task=s.cur.task;
  const giveBtn=s.give==='long'?`<button class="give" data-hold="token" data-ms="900">${tokenVis(s)} Donner un jeton <small>(appui long)</small></button>`:`<button class="give" data-act="token">${tokenVis(s)} Donner un jeton</button>`;
- app(bar('Mes jetons')+`<main class="main tok">
+ app(bar('Économie de jetons/Mise au travail')+`<main class="main tok">
  <button class="goal" data-act="chrein" aria-label="Changer de récompense"><span class="gv">${vis(r)}</span><span>Je travaille pour<br><b>${esc(r.label)}</b></span></button>
  <section class="tright">
   <div class="fn"><button class="fncard" data-act="task"><span class="fv">${task?vis(task):'❔'}</span><span><small>D'abord</small><b>${esc(task?task.label:'Choisir le travail')}</b></span></button><span class="fnarr">➜</span><div class="fncard then"><span class="fv">${vis(r)}</span><span><small>Ensuite</small><b>${esc(r.label)}</b></span></div></div>
@@ -693,6 +695,7 @@ function editor(s){const rl=s.ritual.map((st,k)=>`<div class="li ${st.on?'':'off
   <span class="hint">${STEPTYPES[st.type]||''}</span>${st.type==='respiration'||st.type==='meteo'||st.type==='choix'?'':`<span class="hint">⏳</span>${stepper('rmin',st.min,' min',`data-id="${st.id}"`)}`}
   ${photoBtns('rit',st.id)}<button class="mb" data-act="rmove" data-id="${st.id}" data-d="-1" aria-label="monter">↑</button><button class="mb" data-act="rmove" data-id="${st.id}" data-d="1" aria-label="descendre">↓</button>${st.type==='custom'?`<button class="mb del" data-act="rdel" data-id="${st.id}" aria-label="supprimer">🗑</button>`:''}</div>`).join('');
  const pl=s.program.map(p=>`<div class="li"><span class="lvv">${vis(p)}</span><input class="em" data-pf="icon" data-id="${p.id}" value="${esc(p.icon)}" aria-label="pictogramme"><input class="lb" data-pf="label" data-id="${p.id}" value="${esc(p.label)}" aria-label="activité">${photoBtns('prg',p.id)}<button class="mb" data-act="pmove" data-id="${p.id}" data-d="-1">↑</button><button class="mb" data-act="pmove" data-id="${p.id}" data-d="1">↓</button><button class="mb del" data-act="pdel" data-id="${p.id}">🗑</button></div>`).join('');
+ const tl=s.tasks.map(t=>`<div class="li ${t.on?'':'off'}">${tg(t.on,'ton',`data-id="${t.id}"`)}<span class="lvv">${vis(t)}</span><input class="em" data-tf="icon" data-id="${t.id}" value="${esc(t.icon)}" aria-label="pictogramme"><input class="lb" data-tf="label" data-id="${t.id}" value="${esc(t.label)}" aria-label="travail">${photoBtns('task',t.id)}${t.photo?`<button class="mb" data-act="nophoto" data-kind="task" data-id="${t.id}">Sans photo</button>`:''}<button class="mb" data-act="tmove" data-id="${t.id}" data-d="-1">↑</button><button class="mb" data-act="tmove" data-id="${t.id}" data-d="1">↓</button><button class="mb del" data-act="tdel" data-id="${t.id}">🗑</button></div>`).join('');
  const allowed=r=>!s.rein||s.rein.includes(r.id);
  return `<div class="row" style="justify-content:flex-start;margin-bottom:14px"><button class="btn sm" data-act="aback">◀ Tous les élèves</button></div>
  <div class="card"><h3>Élève</h3>
@@ -714,6 +717,8 @@ function editor(s){const rl=s.ritual.map((st,k)=>`<div class="li ${st.on?'':'off
   <div class="fld"><label>Sons</label>${tg(s.sound,'ssound')}<span class="hint">À couper si l'élève est gêné par les sons.</span></div></div>
  <div class="card"><h3>Rituel d'accueil</h3><p class="hint">Même ordre chaque jour. Désactivez une étape plutôt que de la supprimer. Le pictogramme se change au clavier emoji, ou remplacez-le par une photo.</p><div class="lst">${rl}</div>
   <div style="margin-top:12px"><button class="btn" data-act="radd">＋ Ajouter une étape</button></div></div>
+ <div class="card"><h3>« D'abord, je fais… » : travaux proposés</h3><p class="hint">Cochez les travaux à proposer à cet élève dans « Économie de jetons/Mise au travail ». Un travail ajouté au dernier moment avec « Autre… » s'ajoute ici automatiquement.</p><div class="lst">${tl}</div>
+  <div style="margin-top:12px"><button class="btn" data-act="tadd">＋ Ajouter un travail</button></div></div>
  <div class="card"><h3>Programme de la journée</h3><p class="hint">Les activités cochées par l'élève se remettent à zéro chaque matin.</p><div class="lst">${pl}</div>
   <div style="margin-top:12px"><button class="btn" data-act="padd">＋ Ajouter une activité</button></div></div>
  <div class="card"><button class="btn danger" data-hold="delstu" data-ms="2000">Supprimer ce profil (appui long 2 s)</button></div>`}
@@ -758,8 +763,8 @@ A.rchoose=d=>{const s=stu();s.cur.rid=d.id;s.cur.t=0;s.cur.next=false;s.cur.day=
 A.tokens=()=>go('tokens');
 A.setrein=d=>{const s=stu();s.cur.rid=d.id;s.cur.next=false;s.cur.day=today();save();go('tokens')};
 A.chrein=()=>{const s=stu();openSheet(`<h2>Je travaille pour…</h2>${reinfGrid(s,'setrein')}`)};
-A.task=()=>{openSheet(`<h2>D'abord, je fais…</h2><div class="rgrid">${TASKS.map(([i,l])=>`<button class="rc" data-act="settask" data-i="${i}" data-l="${esc(l)}"><span class="rv">${i}</span>${l}</button>`).join('')}<button class="rc" data-act="settask" data-other="1"><span class="rv">✍️</span>Autre…</button></div>`)};
-A.settask=d=>{const s=stu();if(d.other){const l=prompt('Travail à faire :');if(!l)return;s.cur.task={icon:'📝',label:l.trim()}}else s.cur.task={icon:d.i,label:d.l};save();go('tokens')};
+A.task=()=>{const s=stu();openSheet(`<h2>D'abord, je fais…</h2><div class="rgrid">${s.tasks.filter(t=>t.on).map(t=>`<button class="rc ${s.cur.task&&s.cur.task.label===t.label?'on':''}" data-act="settask" data-id="${t.id}"><span class="rv">${vis(t)}</span>${esc(t.label)}</button>`).join('')}<button class="rc" data-act="settask" data-other="1"><span class="rv">✍️</span>Autre…</button></div>`)};
+A.settask=d=>{const s=stu();let t;if(d.other){const l=prompt('Travail à faire :');if(!l||!l.trim())return;t=s.tasks.find(x=>x.label.toLowerCase()===l.trim().toLowerCase());if(t)t.on=true;else{t={id:uid(),icon:'📝',label:l.trim(),photo:null,on:true};s.tasks.push(t)}}else t=s.tasks.find(x=>x.id===d.id);if(!t)return;s.cur.task={icon:t.icon,label:t.label,photo:t.photo};save();say("D'abord : "+t.label);go('tokens')};
 A.token=()=>giveToken();
 A.work=d=>{const s=stu();s.workMin=+d.m;save();document.querySelectorAll('[data-act="work"]').forEach(b=>b.classList.toggle('on',b.dataset.m===d.m));mountWork(+d.m,true)};
 A.startreward=()=>{closeSheet();go('reward')};
@@ -801,10 +806,14 @@ function move(arr,id,dir){const i=arr.findIndex(x=>x.id===id),j=i+dir;if(i<0||j<
 A.rmove=d=>{move(edS().ritual,d.id,+d.d);save();reAdmin()};
 A.rdel=d=>{const s=edS();s.ritual=s.ritual.filter(x=>x.id!==d.id);save();reAdmin()};
 A.radd=()=>{const s=edS();const l=prompt('Texte de la nouvelle étape (ex. : Je bois de l\'eau) :');if(!l||!l.trim())return;const i=s.ritual.findIndex(x=>x.type==='travail');const st={id:uid(),type:'custom',on:true,icon:'⭐',label:l.trim(),min:0,photo:null};if(i<0)s.ritual.push(st);else s.ritual.splice(i,0,st);save();reAdmin()};
+A.ton=d=>{const t=edS().tasks.find(x=>x.id===d.id);t.on=!t.on;save();reAdmin()};
+A.tmove=d=>{move(edS().tasks,d.id,+d.d);save();reAdmin()};
+A.tdel=d=>{const s=edS();s.tasks=s.tasks.filter(x=>x.id!==d.id);save();reAdmin()};
+A.tadd=()=>{const s=edS();const l=prompt('Nouveau travail :');if(!l||!l.trim())return;s.tasks.push({id:uid(),icon:'📝',label:l.trim(),photo:null,on:true});save();reAdmin()};
 A.pmove=d=>{move(edS().program,d.id,+d.d);save();reAdmin()};
 A.pdel=d=>{const s=edS();s.program=s.program.filter(x=>x.id!==d.id);save();reAdmin()};
 A.padd=()=>{const s=edS();const l=prompt('Nouvelle activité :');if(!l||!l.trim())return;s.program.push({id:uid(),icon:'📌',label:l.trim(),photo:null,done:false});save();reAdmin()};
-function findItem(kind,id){if(kind==='stu')return S.students.find(s=>s.id===id);if(kind==='tok')return S.students.find(s=>s.id===id);if(kind==='rit')return edS().ritual.find(x=>x.id===id);if(kind==='prg')return edS().program.find(x=>x.id===id);if(kind==='rein')return S.reinf.find(x=>x.id===id);if(kind==='calm')return S.calmItems.find(x=>x.id===id)}
+function findItem(kind,id){if(kind==='stu')return S.students.find(s=>s.id===id);if(kind==='tok')return S.students.find(s=>s.id===id);if(kind==='rit')return edS().ritual.find(x=>x.id===id);if(kind==='prg')return edS().program.find(x=>x.id===id);if(kind==='task')return edS().tasks.find(x=>x.id===id);if(kind==='rein')return S.reinf.find(x=>x.id===id);if(kind==='calm')return S.calmItems.find(x=>x.id===id)}
 A.photo=d=>pickPhoto(d.src==='cam',pid=>{const it=findItem(d.kind,d.id);if(!it)return;if(d.kind==='tok'){if(it.tokenPhoto)idbDel(it.tokenPhoto);it.tokenPhoto=pid;it.tokenIcon='photo'}else{if(it.photo)idbDel(it.photo);it.photo=pid}save();reAdmin()});
 A.nophoto=d=>{const it=findItem(d.kind,d.id);if(it&&it.photo){idbDel(it.photo);delete photos[it.photo];it.photo=null;save();reAdmin()}};
 A.iadd=d=>{const list=d.kind==='rein'?S.reinf:S.calmItems;const make=pid=>{const l=prompt('Nom :')||'Nouveau';const it={id:uid(),label:l.trim(),icon:d.kind==='rein'?'🎁':'🌙',photo:pid||null};if(d.kind==='rein'){it.kind='objet';it.mod=null}list.push(it);save();reAdmin()};
@@ -826,9 +835,10 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
 document.addEventListener('input',e=>{const t=e.target,d=t.dataset;
  if(d.f){const s=edS();if(s){s[d.f]=t.value;save()}}
  else if(d.rf){const st=edS()&&edS().ritual.find(x=>x.id===d.id);if(st){st[d.rf]=t.value;save()}}
+ else if(d.tf){const t=edS()&&edS().tasks.find(x=>x.id===d.id);if(t){t[d.tf]=e.target.value;save()}}
  else if(d.pf){const p=edS()&&edS().program.find(x=>x.id===d.id);if(p){p[d.pf]=t.value;save()}}
  else if(d.if){const it=findItem(d.kind,d.id);if(it){it[d.if]=t.value;save()}}});
-document.addEventListener('change',e=>{const d=e.target.dataset;if(d.rf==='icon'||d.pf==='icon'||d.if==='icon'||d.f==='name')reAdmin()});
+document.addEventListener('change',e=>{const d=e.target.dataset;if(d.rf==='icon'||d.tf==='icon'||d.pf==='icon'||d.if==='icon'||d.f==='name')reAdmin()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&'speechSynthesis' in window)speechSynthesis.cancel()});
 
 /* Démarrage */
