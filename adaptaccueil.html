@@ -466,12 +466,12 @@ function bindHolds(root){root.querySelectorAll('[data-hold]').forEach(b=>{if(b._
  const end=()=>{if(t){clearTimeout(t);t=null}b.classList.remove('holding')};
  b.addEventListener('pointerdown',start);['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,end));b.addEventListener('contextmenu',e=>e.preventDefault())})}
 
-function bar(title){const s=stu();return `<header class="bar">
+function bar(title,hold='admin'){const s=stu();return `<header class="bar">
 <button class="ico" data-act="home" aria-label="Mon espace">🏠</button>
 <div class="who">${av(s)}<span>${esc(s.name)}</span></div>
 <div class="grow ttl">${esc(title||'')}</div>
 <button class="btn calm" data-act="calm">🌙 Pause calme</button>
-<button class="lock" data-hold="admin" data-ms="1500" aria-label="Espace adulte : appui long">🔒</button></header>`}
+<button class="lock" data-hold="${hold}" data-ms="1500" aria-label="${hold==='admin'?'Espace adulte':'Modifier le programme du jour'} : appui long">🔒</button></header>`}
 
 /* ============ Écrans élève ============ */
 R.pick=()=>{app(`<header class="bar"><div class="brand">Adaptaccueil</div><div class="grow"></div><button class="lock" data-hold="admin" data-ms="1500" aria-label="Espace adulte : appui long">🔒</button></header>
@@ -490,10 +490,10 @@ R.home=()=>{const s=stu();app(bar()+`<main class="main"><div class="tiles">
 /* --- Rituel d'accueil --- */
 let rit={i:0,done:new Set(),level:null,start:0};
 function ritSteps(){return stu().ritual.filter(x=>x.on)}
-function progToday(s){if(s.progDate!==today()){s.program.forEach(p=>p.done=false);s.progDate=today();save()}}
-function progStrip(s,n,interactive){progToday(s);const firstIdx=s.program.findIndex(p=>!p.done);
- const items=n?s.program.filter(p=>!p.done).slice(0,n):s.program;
- return `<div class="prog">${items.map(p=>{const k=s.program.indexOf(p);const tag=k===firstIdx?'<span class="tag">Maintenant</span>':(!p.done&&s.program.slice(firstIdx+1).find(x=>!x.done)===p?'<span class="tag after">Après</span>':'');
+function progToday(s){if(s.progDate!==today()||!s.dayProg){s.dayProg=s.program.map(p=>({...p,id:uid(),done:false}));s.progDate=today();s.cur.progId=null;save()}return s.dayProg}
+function progStrip(s,n,interactive){progToday(s);const firstIdx=s.dayProg.findIndex(p=>!p.done);
+ const items=n?s.dayProg.filter(p=>!p.done).slice(0,n):s.dayProg;
+ return `<div class="prog">${items.map(p=>{const k=s.dayProg.indexOf(p);const tag=k===firstIdx?'<span class="tag">Maintenant</span>':(!p.done&&s.dayProg.slice(firstIdx+1).find(x=>!x.done)===p?'<span class="tag after">Après</span>':'');
   return `<${interactive?'button':'div'} class="pc ${n?'mini':''} ${k===firstIdx?'now':''} ${p.done?'done':''}" ${interactive?`data-hold="pdone" data-ms="1000" data-id="${p.id}"`:''}><span class="pv">${vis(p)}</span>${esc(p.label)}${tag}</${interactive?'button':'div'}>`}).join('')||'<p class="msg">Programme terminé ✓</p>'}</div>`}
 function reinfList(s){return s.rein?S.reinf.filter(r=>s.rein.includes(r.id)):S.reinf}
 function reinfGrid(s,act){return `<div class="rgrid">${reinfList(s).map(r=>`<button class="rc ${s.cur.rid===r.id?'on':''}" data-act="${act}" data-id="${r.id}"><span class="rv">${vis(r)}</span>${esc(r.label)}</button>`).join('')}</div>`}
@@ -562,7 +562,7 @@ H.token=()=>giveToken();
 H.untoken=()=>{const s=stu();if(s&&s.cur.t>0){s.cur.t--;save();drawSlots(-1)}};
 
 /* --- Récompense --- */
-R.reward=()=>{const s=stu(),r=S.reinf.find(x=>x.id===s.cur.rid);if(!r)return go('tokens');s.cur.t=0;s.cur.next=true;if(s.cur.progId){const p=s.program.find(x=>x.id===s.cur.progId);if(p)p.done=true;s.cur.progId=null;s.cur.fromProg=true;s.cur.task=null}save();
+R.reward=()=>{const s=stu(),r=S.reinf.find(x=>x.id===s.cur.rid);if(!r)return go('tokens');s.cur.t=0;s.cur.next=true;if(s.cur.progId){const p=(s.dayProg||[]).find(x=>x.id===s.cur.progId);if(p)p.done=true;s.cur.progId=null;s.cur.fromProg=true;s.cur.task=null}save();
  app(bar('Ma récompense')+`<main class="main"><div class="reward"><div class="rstage" id="rst">${r.kind==='module'?'':`<span class="gv">${vis(r)}</span><p class="msg">${esc(r.label)}</p>`}</div>
  <div class="rside"><div id="rt" style="--th:min(40vh,300px)"></div><div id="rend"></div></div></div></main>`);
  if(r.kind==='module'&&MOD[r.mod]){const st=$('#rst');const lt=r.mod!=='lights';st.classList.add('cstage');if(lt)st.classList.add('light');live.push(MOD[r.mod](st,{light:lt}))}
@@ -572,11 +572,11 @@ R.reward=()=>{const s=stu(),r=S.reinf.find(x=>x.id===s.cur.rid);if(!r)return go(
  S.log.push({t:Date.now(),sid:s.id,type:'récompense',before:null,after:null,tools:r.label,dur:s.rewardMin,note:''});save()};
 
 /* --- Programme --- */
-R.program=()=>{const s=stu();progToday(s);const nx=s.program.find(p=>!p.done);const linked=nx&&s.cur.progId===nx.id;
- app(bar('Mon programme')+`<main class="main center"><h1 class="q">Mon programme</h1>${progStrip(s,0,true)}
+R.program=()=>{const s=stu();progToday(s);const nx=s.dayProg.find(p=>!p.done);const linked=nx&&s.cur.progId===nx.id;
+ app(bar('Mon programme','dayedit')+`<main class="main center"><h1 class="q">Mon programme</h1>${progStrip(s,0,true)}
  ${nx?`<section class="nextstep"><p class="wlab">Pour passer à l'activité suivante</p>
   <button class="give" data-act="progtok"><span class="pv">${vis(nx)}</span> Économie de jetons : ${esc(nx.label)}${linked?` <small>(${s.cur.t} sur ${s.tokens})</small>`:''}</button></section>`:''}
- <p class="hint" style="margin-top:18px">Adulte : appui long sur une activité pour la valider directement.</p></main>`);
+ <p class="hint" style="margin-top:18px">Adulte : appui long sur une activité pour la valider directement, appui long sur 🔒 pour modifier le programme d'aujourd'hui.</p></main>`);
  if(nx)say('Maintenant : '+nx.label)};
 
 /* --- Sablier libre --- */
@@ -727,8 +727,8 @@ function editor(s){const rl=s.ritual.map((st,k)=>`<div class="li ${st.on?'':'off
   <div style="margin-top:12px"><button class="btn" data-act="radd">＋ Ajouter une étape</button></div></div>
  <div class="card"><h3>« D'abord, je fais… » : travaux proposés</h3><p class="hint">Cochez les travaux à proposer à cet élève dans « Économie de jetons/Mise au travail ». Un travail ajouté au dernier moment avec « Autre… » s'ajoute ici automatiquement.</p><div class="lst">${tl}</div>
   <div style="margin-top:12px"><button class="btn" data-act="tadd">＋ Ajouter un travail</button></div></div>
- <div class="card"><h3>Programme de la journée</h3><p class="hint">Les activités cochées par l'élève se remettent à zéro chaque matin.</p><div class="lst">${pl}</div>
-  <div style="margin-top:12px"><button class="btn" data-act="padd">＋ Ajouter une activité</button></div></div>
+ <div class="card"><h3>Programme de base</h3><p class="hint">Il sert de modèle chaque matin. Pour changer seulement la journée en cours : écran « Mon programme », appui long sur 🔒.</p><div class="lst">${pl}</div>
+  <div style="margin-top:12px"><button class="btn" data-act="padd">＋ Ajouter une activité</button> <button class="btn" data-act="papply">Appliquer la base à aujourd'hui</button></div></div>
  <div class="card"><button class="btn danger" data-hold="delstu" data-ms="2000">Supprimer ce profil (appui long 2 s)</button></div>`}
 
 function itemsCard(title,hint,list,kind,isReinf){return `<div class="card"><h3>${title}</h3><p class="hint">${hint}</p><div class="lst">${list.map(i=>`<div class="li"><span class="lvv">${vis(i)}</span><input class="em" data-if="icon" data-kind="${kind}" data-id="${i.id}" value="${esc(i.icon)}"><input class="lb" data-if="label" data-kind="${kind}" data-id="${i.id}" value="${esc(i.label)}">
@@ -752,9 +752,24 @@ function reperes(){return `<div class="card"><h3>L'accueil : rendre le matin pr�
 
 /* ============ Actions ============ */
 const A={};
-A.closesheet=()=>closeSheet();
+A.closesheet=()=>{const w=$('#sheet .dayed');closeSheet();if(w&&cur.scr==='program')go('program')};
 A.firstadmin=()=>{adm={tab:'eleves',edit:null};go('admin')};
 H.admin=()=>{adm.edit=null;go('admin')};
+function openDayEditor(){const s=stu();if(!s)return;const L=progToday(s);const y=$('#sheet .sbox')?$('#sheet .sbox').scrollTop:0;
+ openSheet(`<h2>Programme d'aujourd'hui</h2><p class="hint">Ces changements ne valent que pour aujourd'hui. Le programme de base se modifie dans l'espace adulte, profil de l'élève.</p>
+ <div class="lst">${L.map(p=>`<div class="li ${p.done?'off':''}"><button class="mb" data-act="ddone" data-id="${p.id}" aria-label="fait ou pas fait">${p.done?'✓':'○'}</button><span class="lvv">${vis(p)}</span><input class="em" data-df="icon" data-id="${p.id}" value="${esc(p.icon)}" aria-label="pictogramme"><input class="lb" data-df="label" data-id="${p.id}" value="${esc(p.label)}" aria-label="activité">${photoBtns('day',p.id)}<button class="mb" data-act="dmove" data-id="${p.id}" data-d="-1">↑</button><button class="mb" data-act="dmove" data-id="${p.id}" data-d="1">↓</button><button class="mb del" data-act="ddel" data-id="${p.id}">🗑</button></div>`).join('')||'<p class="hint">Aucune activité.</p>'}</div>
+ <h3 style="margin:18px 0 10px">Ajouter</h3><div class="seg">${s.program.map(b=>`<button class="chip" data-act="dadd" data-id="${b.id}">${esc(b.icon)} ${esc(b.label)}</button>`).join('')}<button class="chip" data-act="dnew">＋ Nouvelle activité</button></div>
+ <div class="row" style="justify-content:space-between;margin-top:22px"><button class="btn danger sm" data-act="dreset">Revenir au programme de base</button><button class="btn sm" data-act="dadmin">Espace adulte</button><button class="btn pri" data-act="dclose">Terminé ✓</button></div>`,'dayed');
+ const b=$('#sheet .sbox');if(b)b.scrollTop=y}
+H.dayedit=()=>openDayEditor();
+A.ddone=d=>{const p=stu().dayProg.find(x=>x.id===d.id);if(p){p.done=!p.done;save();openDayEditor()}};
+A.dmove=d=>{move(stu().dayProg,d.id,+d.d);save();openDayEditor()};
+A.ddel=d=>{const s=stu();s.dayProg=s.dayProg.filter(x=>x.id!==d.id);if(s.cur.progId===d.id)s.cur.progId=null;save();openDayEditor()};
+A.dadd=d=>{const s=stu(),b=s.program.find(x=>x.id===d.id);if(!b)return;s.dayProg.push({...b,id:uid(),done:false});save();openDayEditor()};
+A.dnew=()=>{const l=prompt("Nouvelle activité pour aujourd'hui :");if(!l||!l.trim())return;stu().dayProg.push({id:uid(),icon:'📌',label:l.trim(),photo:null,done:false});save();openDayEditor()};
+A.dreset=()=>{if(!confirm("Remplacer le programme d'aujourd'hui par le programme de base ?"))return;const s=stu();s.progDate='';progToday(s);openDayEditor()};
+A.dclose=()=>{closeSheet();go('program')};
+A.dadmin=()=>{closeSheet();H.admin()};
 A.admin=()=>H.admin();
 A.pick=d=>{cur.sid=d.id;ac();const s=stu();say('Bonjour '+s.name);go('home')};
 A.topick=()=>{cur.sid=null;go('pick')};
@@ -776,10 +791,10 @@ A.settask=d=>{const s=stu();s.cur.progId=null;let t;if(d.other){const l=prompt('
 A.token=()=>giveToken();
 A.work=d=>{const s=stu();s.workMin=+d.m;save();document.querySelectorAll('[data-act="work"]').forEach(b=>b.classList.toggle('on',b.dataset.m===d.m));mountWork(+d.m,true)};
 A.startreward=()=>{closeSheet();go('reward')};
-A.endreward=()=>{const s=stu();s.cur.t=0;s.cur.rid=null;s.cur.next=false;const fp=s.cur.fromProg;s.cur.fromProg=false;save();if(fp){const nx=s.program.find(p=>!p.done);if(nx)say('Maintenant : '+nx.label);go('program')}else go('tokens')};
+A.endreward=()=>{const s=stu();s.cur.t=0;s.cur.rid=null;s.cur.next=false;const fp=s.cur.fromProg;s.cur.fromProg=false;save();if(fp){const nx=(s.dayProg||[]).find(p=>!p.done);if(nx)say('Maintenant : '+nx.label);go('program')}else go('tokens')};
 A.program=()=>go('program');
-H.pdone=d=>{const s=stu(),p=s.program.find(x=>x.id===d.id);if(!p)return;p.done=!p.done;if(s.cur.progId===p.id&&p.done)s.cur.progId=null;save();if(p.done)sndToken();go('program')};
-A.progtok=()=>{const s=stu();progToday(s);const nx=s.program.find(p=>!p.done);if(!nx)return;if(s.cur.progId!==nx.id){s.cur.progId=nx.id;s.cur.task={icon:nx.icon,label:nx.label,photo:nx.photo}}save();say("D'abord : "+nx.label);go('tokens')};
+H.pdone=d=>{const s=stu();progToday(s);const p=s.dayProg.find(x=>x.id===d.id);if(!p)return;p.done=!p.done;if(s.cur.progId===p.id&&p.done)s.cur.progId=null;save();if(p.done)sndToken();go('program')};
+A.progtok=()=>{const s=stu();progToday(s);const nx=s.dayProg.find(p=>!p.done);if(!nx)return;if(s.cur.progId!==nx.id){s.cur.progId=nx.id;s.cur.task={icon:nx.icon,label:nx.label,photo:nx.photo}}save();say("D'abord : "+nx.label);go('tokens')};
 A.timer=()=>go('timer');
 A.urgence=()=>{const s=stu();if(!s)return;S.log.push({t:Date.now(),sid:s.id,type:'urgence',before:null,after:null,tools:'Adaptémotion',dur:null,note:''});save()};
 A.tmin=d=>{tpage.m=+d.m;go('timer')};
@@ -820,10 +835,11 @@ A.tmove=d=>{move(edS().tasks,d.id,+d.d);save();reAdmin()};
 A.tdel=d=>{const s=edS();s.tasks=s.tasks.filter(x=>x.id!==d.id);save();reAdmin()};
 A.tadd=()=>{const s=edS();const l=prompt('Nouveau travail :');if(!l||!l.trim())return;s.tasks.push({id:uid(),icon:'📝',label:l.trim(),photo:null,on:true});save();reAdmin()};
 A.pmove=d=>{move(edS().program,d.id,+d.d);save();reAdmin()};
+A.papply=()=>{if(!confirm("Remplacer le programme d'aujourd'hui (et ce qui est déjà coché) par le programme de base ?"))return;edS().progDate='';save();toast('Programme du jour mis à jour')};
 A.pdel=d=>{const s=edS();s.program=s.program.filter(x=>x.id!==d.id);save();reAdmin()};
 A.padd=()=>{const s=edS();const l=prompt('Nouvelle activité :');if(!l||!l.trim())return;s.program.push({id:uid(),icon:'📌',label:l.trim(),photo:null,done:false});save();reAdmin()};
-function findItem(kind,id){if(kind==='stu')return S.students.find(s=>s.id===id);if(kind==='tok')return S.students.find(s=>s.id===id);if(kind==='rit')return edS().ritual.find(x=>x.id===id);if(kind==='prg')return edS().program.find(x=>x.id===id);if(kind==='task')return edS().tasks.find(x=>x.id===id);if(kind==='rein')return S.reinf.find(x=>x.id===id);if(kind==='calm')return S.calmItems.find(x=>x.id===id)}
-A.photo=d=>pickPhoto(d.src==='cam',pid=>{const it=findItem(d.kind,d.id);if(!it)return;if(d.kind==='tok'){if(it.tokenPhoto)idbDel(it.tokenPhoto);it.tokenPhoto=pid;it.tokenIcon='photo'}else{if(it.photo)idbDel(it.photo);it.photo=pid}save();reAdmin()});
+function findItem(kind,id){if(kind==='stu')return S.students.find(s=>s.id===id);if(kind==='tok')return S.students.find(s=>s.id===id);if(kind==='rit')return edS().ritual.find(x=>x.id===id);if(kind==='prg')return edS().program.find(x=>x.id===id);if(kind==='task')return edS().tasks.find(x=>x.id===id);if(kind==='day')return (stu().dayProg||[]).find(x=>x.id===id);if(kind==='rein')return S.reinf.find(x=>x.id===id);if(kind==='calm')return S.calmItems.find(x=>x.id===id)}
+A.photo=d=>pickPhoto(d.src==='cam',pid=>{const it=findItem(d.kind,d.id);if(!it)return;if(d.kind==='tok'){if(it.tokenPhoto)idbDel(it.tokenPhoto);it.tokenPhoto=pid;it.tokenIcon='photo'}else{if(it.photo)idbDel(it.photo);it.photo=pid}save();if(d.kind==='day')openDayEditor();else reAdmin()});
 A.nophoto=d=>{const it=findItem(d.kind,d.id);if(it&&it.photo){idbDel(it.photo);delete photos[it.photo];it.photo=null;save();reAdmin()}};
 A.iadd=d=>{const list=d.kind==='rein'?S.reinf:S.calmItems;const make=pid=>{const l=prompt('Nom :')||'Nouveau';const it={id:uid(),label:l.trim(),icon:d.kind==='rein'?'🎁':'🌙',photo:pid||null};if(d.kind==='rein'){it.kind='objet';it.mod=null}list.push(it);save();reAdmin()};
  if(d.src==='cam')pickPhoto(true,make);else make(null)};
@@ -845,9 +861,10 @@ document.addEventListener('input',e=>{const t=e.target,d=t.dataset;
  if(d.f){const s=edS();if(s){s[d.f]=t.value;save()}}
  else if(d.rf){const st=edS()&&edS().ritual.find(x=>x.id===d.id);if(st){st[d.rf]=t.value;save()}}
  else if(d.tf){const t=edS()&&edS().tasks.find(x=>x.id===d.id);if(t){t[d.tf]=e.target.value;save()}}
+ else if(d.df){const p=(stu()&&stu().dayProg||[]).find(x=>x.id===d.id);if(p){p[d.df]=t.value;save()}}
  else if(d.pf){const p=edS()&&edS().program.find(x=>x.id===d.id);if(p){p[d.pf]=t.value;save()}}
  else if(d.if){const it=findItem(d.kind,d.id);if(it){it[d.if]=t.value;save()}}});
-document.addEventListener('change',e=>{const d=e.target.dataset;if(d.rf==='icon'||d.tf==='icon'||d.pf==='icon'||d.if==='icon'||d.f==='name')reAdmin()});
+document.addEventListener('change',e=>{const d=e.target.dataset;if(d.df==='icon'){openDayEditor();return}if(d.rf==='icon'||d.tf==='icon'||d.pf==='icon'||d.if==='icon'||d.f==='name')reAdmin()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&'speechSynthesis' in window)speechSynthesis.cancel()});
 
 /* Démarrage */
