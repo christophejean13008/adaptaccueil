@@ -113,7 +113,7 @@ img.ph{object-fit:cover;display:block}
 .pc .tag.after{background:var(--soft)}
 .pc.now{box-shadow:inset 0 0 0 5px var(--lagoon);transform:scale(1.04)}
 .pc.done{opacity:.4}
-.pc.done::after{content:"✓";position:absolute;top:8px;right:12px;font-size:1.6rem;color:var(--lagoon);font-weight:900}
+.pc.done::before{content:"✓";position:absolute;top:8px;right:12px;font-size:1.6rem;color:var(--lagoon);font-weight:900}
 .pc.mini{width:140px}
 
 /* grille de renforçateurs */
@@ -149,6 +149,10 @@ img.ph{object-fit:cover;display:block}
 .wctl .row{justify-content:flex-start}
 .wlab{font-weight:750;color:var(--soft)}
 .give{border:0;border-radius:999px;background:var(--gold);color:#3A2A05;font-weight:800;font-size:1.5rem;min-height:84px;display:flex;align-items:center;justify-content:center;gap:12px;position:relative}
+.nextstep{margin-top:26px;display:flex;flex-direction:column;align-items:center;gap:10px;width:min(100%,640px)}
+.nextstep .give{width:100%;padding:10px 24px}
+.give .pv{font-size:2.6rem;line-height:1}
+.give .pv img{width:60px;height:60px;border-radius:12px;object-fit:cover}
 .give small{font-weight:650;font-size:.95rem;opacity:.75}
 .undo{border:0;background:transparent;color:var(--soft);font-weight:650;align-self:center;position:relative;padding:8px 14px;border-radius:12px}
 
@@ -490,7 +494,7 @@ function progToday(s){if(s.progDate!==today()){s.program.forEach(p=>p.done=false
 function progStrip(s,n,interactive){progToday(s);const firstIdx=s.program.findIndex(p=>!p.done);
  const items=n?s.program.filter(p=>!p.done).slice(0,n):s.program;
  return `<div class="prog">${items.map(p=>{const k=s.program.indexOf(p);const tag=k===firstIdx?'<span class="tag">Maintenant</span>':(!p.done&&s.program.slice(firstIdx+1).find(x=>!x.done)===p?'<span class="tag after">Après</span>':'');
-  return `<${interactive?'button':'div'} class="pc ${n?'mini':''} ${k===firstIdx?'now':''} ${p.done?'done':''}" ${interactive?`data-act="pdone" data-id="${p.id}"`:''}><span class="pv">${vis(p)}</span>${esc(p.label)}${tag}</${interactive?'button':'div'}>`}).join('')||'<p class="msg">Programme terminé ✓</p>'}</div>`}
+  return `<${interactive?'button':'div'} class="pc ${n?'mini':''} ${k===firstIdx?'now':''} ${p.done?'done':''}" ${interactive?`data-hold="pdone" data-ms="1000" data-id="${p.id}"`:''}><span class="pv">${vis(p)}</span>${esc(p.label)}${tag}</${interactive?'button':'div'}>`}).join('')||'<p class="msg">Programme terminé ✓</p>'}</div>`}
 function reinfList(s){return s.rein?S.reinf.filter(r=>s.rein.includes(r.id)):S.reinf}
 function reinfGrid(s,act){return `<div class="rgrid">${reinfList(s).map(r=>`<button class="rc ${s.cur.rid===r.id?'on':''}" data-act="${act}" data-id="${r.id}"><span class="rv">${vis(r)}</span>${esc(r.label)}</button>`).join('')}</div>`}
 
@@ -558,7 +562,7 @@ H.token=()=>giveToken();
 H.untoken=()=>{const s=stu();if(s&&s.cur.t>0){s.cur.t--;save();drawSlots(-1)}};
 
 /* --- Récompense --- */
-R.reward=()=>{const s=stu(),r=S.reinf.find(x=>x.id===s.cur.rid);if(!r)return go('tokens');s.cur.t=0;s.cur.next=true;save();
+R.reward=()=>{const s=stu(),r=S.reinf.find(x=>x.id===s.cur.rid);if(!r)return go('tokens');s.cur.t=0;s.cur.next=true;if(s.cur.progId){const p=s.program.find(x=>x.id===s.cur.progId);if(p)p.done=true;s.cur.progId=null;s.cur.fromProg=true;s.cur.task=null}save();
  app(bar('Ma récompense')+`<main class="main"><div class="reward"><div class="rstage" id="rst">${r.kind==='module'?'':`<span class="gv">${vis(r)}</span><p class="msg">${esc(r.label)}</p>`}</div>
  <div class="rside"><div id="rt" style="--th:min(40vh,300px)"></div><div id="rend"></div></div></div></main>`);
  if(r.kind==='module'&&MOD[r.mod]){const st=$('#rst');const lt=r.mod!=='lights';st.classList.add('cstage');if(lt)st.classList.add('light');live.push(MOD[r.mod](st,{light:lt}))}
@@ -568,8 +572,12 @@ R.reward=()=>{const s=stu(),r=S.reinf.find(x=>x.id===s.cur.rid);if(!r)return go(
  S.log.push({t:Date.now(),sid:s.id,type:'récompense',before:null,after:null,tools:r.label,dur:s.rewardMin,note:''});save()};
 
 /* --- Programme --- */
-R.program=()=>{const s=stu();app(bar('Mon programme')+`<main class="main center"><h1 class="q">Mon programme</h1>${progStrip(s,0,true)}<p class="hint" style="margin-top:22px">Je touche une activité quand elle est finie.</p></main>`);
- const nx=s.program.find(p=>!p.done);if(nx)say('Maintenant : '+nx.label)};
+R.program=()=>{const s=stu();progToday(s);const nx=s.program.find(p=>!p.done);const linked=nx&&s.cur.progId===nx.id;
+ app(bar('Mon programme')+`<main class="main center"><h1 class="q">Mon programme</h1>${progStrip(s,0,true)}
+ ${nx?`<section class="nextstep"><p class="wlab">Pour passer à l'activité suivante</p>
+  <button class="give" data-act="progtok"><span class="pv">${vis(nx)}</span> Économie de jetons : ${esc(nx.label)}${linked?` <small>(${s.cur.t} sur ${s.tokens})</small>`:''}</button></section>`:''}
+ <p class="hint" style="margin-top:18px">Adulte : appui long sur une activité pour la valider directement.</p></main>`);
+ if(nx)say('Maintenant : '+nx.label)};
 
 /* --- Sablier libre --- */
 let tpage={m:5,style:null};
@@ -764,13 +772,14 @@ A.tokens=()=>go('tokens');
 A.setrein=d=>{const s=stu();s.cur.rid=d.id;s.cur.next=false;s.cur.day=today();save();go('tokens')};
 A.chrein=()=>{const s=stu();openSheet(`<h2>Je travaille pour…</h2>${reinfGrid(s,'setrein')}`)};
 A.task=()=>{const s=stu();openSheet(`<h2>D'abord, je fais…</h2><div class="rgrid">${s.tasks.filter(t=>t.on).map(t=>`<button class="rc ${s.cur.task&&s.cur.task.label===t.label?'on':''}" data-act="settask" data-id="${t.id}"><span class="rv">${vis(t)}</span>${esc(t.label)}</button>`).join('')}<button class="rc" data-act="settask" data-other="1"><span class="rv">✍️</span>Autre…</button></div>`)};
-A.settask=d=>{const s=stu();let t;if(d.other){const l=prompt('Travail à faire :');if(!l||!l.trim())return;t=s.tasks.find(x=>x.label.toLowerCase()===l.trim().toLowerCase());if(t)t.on=true;else{t={id:uid(),icon:'📝',label:l.trim(),photo:null,on:true};s.tasks.push(t)}}else t=s.tasks.find(x=>x.id===d.id);if(!t)return;s.cur.task={icon:t.icon,label:t.label,photo:t.photo};save();say("D'abord : "+t.label);go('tokens')};
+A.settask=d=>{const s=stu();s.cur.progId=null;let t;if(d.other){const l=prompt('Travail à faire :');if(!l||!l.trim())return;t=s.tasks.find(x=>x.label.toLowerCase()===l.trim().toLowerCase());if(t)t.on=true;else{t={id:uid(),icon:'📝',label:l.trim(),photo:null,on:true};s.tasks.push(t)}}else t=s.tasks.find(x=>x.id===d.id);if(!t)return;s.cur.task={icon:t.icon,label:t.label,photo:t.photo};save();say("D'abord : "+t.label);go('tokens')};
 A.token=()=>giveToken();
 A.work=d=>{const s=stu();s.workMin=+d.m;save();document.querySelectorAll('[data-act="work"]').forEach(b=>b.classList.toggle('on',b.dataset.m===d.m));mountWork(+d.m,true)};
 A.startreward=()=>{closeSheet();go('reward')};
-A.endreward=()=>{const s=stu();s.cur.t=0;s.cur.rid=null;s.cur.next=false;save();go('tokens')};
+A.endreward=()=>{const s=stu();s.cur.t=0;s.cur.rid=null;s.cur.next=false;const fp=s.cur.fromProg;s.cur.fromProg=false;save();if(fp){const nx=s.program.find(p=>!p.done);if(nx)say('Maintenant : '+nx.label);go('program')}else go('tokens')};
 A.program=()=>go('program');
-A.pdone=d=>{const s=stu(),p=s.program.find(x=>x.id===d.id);p.done=!p.done;save();if(p.done)sndToken();go('program')};
+H.pdone=d=>{const s=stu(),p=s.program.find(x=>x.id===d.id);if(!p)return;p.done=!p.done;if(s.cur.progId===p.id&&p.done)s.cur.progId=null;save();if(p.done)sndToken();go('program')};
+A.progtok=()=>{const s=stu();progToday(s);const nx=s.program.find(p=>!p.done);if(!nx)return;if(s.cur.progId!==nx.id){s.cur.progId=nx.id;s.cur.task={icon:nx.icon,label:nx.label,photo:nx.photo}}save();say("D'abord : "+nx.label);go('tokens')};
 A.timer=()=>go('timer');
 A.urgence=()=>{const s=stu();if(!s)return;S.log.push({t:Date.now(),sid:s.id,type:'urgence',before:null,after:null,tools:'Adaptémotion',dur:null,note:''});save()};
 A.tmin=d=>{tpage.m=+d.m;go('timer')};
