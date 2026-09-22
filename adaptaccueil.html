@@ -530,7 +530,7 @@ function finishRitual(){const s=stu();S.log.push({t:rit.start||Date.now(),sid:s.
 
 /* --- Économie de jetons --- */
 let work=null;
-R.tokens=()=>{const s=stu(),r=S.reinf.find(x=>x.id===s.cur.rid);
+R.tokens=()=>{const s=stu();if(s.cur.day!==today()){s.cur.day=today();s.cur.t=0;s.cur.rid=null;s.cur.next=false;save()}if(s.cur.next){s.cur.t=0;s.cur.rid=null;s.cur.next=false;save()}if(s.cur.t>s.tokens){s.cur.t=s.tokens;save()}const r=S.reinf.find(x=>x.id===s.cur.rid);
  if(!r){app(bar('Mes jetons')+`<main class="main"><h1 class="q">Je travaille pour…</h1>${reinfGrid(s,'setrein')}</main>`);say('Je travaille pour quoi ?');return}
  const task=s.cur.task;
  const giveBtn=s.give==='long'?`<button class="give" data-hold="token" data-ms="900">${tokenVis(s)} Donner un jeton <small>(appui long)</small></button>`:`<button class="give" data-act="token">${tokenVis(s)} Donner un jeton</button>`;
@@ -543,7 +543,7 @@ R.tokens=()=>{const s=stu(),r=S.reinf.find(x=>x.id===s.cur.rid);
   ${giveBtn}
   <button class="undo" data-hold="untoken" data-ms="900">↶ Retirer le dernier jeton (erreur, appui long)</button>
  </section></main>`);
- drawSlots(-1);mountWork(s.workMin,false)};
+ drawSlots(-1);mountWork(s.workMin,false);if(s.cur.t>=s.tokens)setTimeout(celebrate,500)};
 function drawSlots(anim){const s=stu(),el=$('#slots');if(!el)return;el.innerHTML=Array.from({length:s.tokens},(_,k)=>`<div class="slot ${k<s.cur.t?'full':''} ${k===anim?'pop':''}">${k<s.cur.t?tokenVis(s):''}</div>`).join('')}
 function mountWork(min,auto){const s=stu(),el=$('#wt');if(!el)return;if(work)work.destroy();el.innerHTML='';el.className='';
  work=mountTimer(el,min*60,{style:'disque',clock:s.showClock,controls:true,auto,onEnd:()=>{say("C'est fini, bravo");if(stu().auto)giveToken()}});
@@ -556,7 +556,7 @@ H.token=()=>giveToken();
 H.untoken=()=>{const s=stu();if(s&&s.cur.t>0){s.cur.t--;save();drawSlots(-1)}};
 
 /* --- Récompense --- */
-R.reward=()=>{const s=stu(),r=S.reinf.find(x=>x.id===s.cur.rid);if(!r)return go('tokens');
+R.reward=()=>{const s=stu(),r=S.reinf.find(x=>x.id===s.cur.rid);if(!r)return go('tokens');s.cur.t=0;s.cur.next=true;save();
  app(bar('Ma récompense')+`<main class="main"><div class="reward"><div class="rstage" id="rst">${r.kind==='module'?'':`<span class="gv">${vis(r)}</span><p class="msg">${esc(r.label)}</p>`}</div>
  <div class="rside"><div id="rt" style="--th:min(40vh,300px)"></div><div id="rend"></div></div></div></main>`);
  if(r.kind==='module'&&MOD[r.mod]){const st=$('#rst');const lt=r.mod!=='lights';st.classList.add('cstage');if(lt)st.classList.add('light');live.push(MOD[r.mod](st,{light:lt}))}
@@ -754,16 +754,16 @@ A.rprev=()=>{if(rit.i>0){rit.i--;go('ritual')}};
 A.rwork=()=>{const steps=ritSteps();rit.done.add(steps[rit.i].id);finishRitual()};
 A.rbreath=()=>{const b=$('#sbody');b.innerHTML='';const box=document.createElement('div');box.style.cssText='position:relative;width:100%;height:min(46vh,380px)';b.appendChild(box);live.push(breath(box,{cycles:3,light:true,onDone:()=>{if(cur.scr==='ritual')ritNext()}}))};
 A.rcalm=()=>openCalm({level:rit.level,onReturn:()=>{cur.scr='ritual';ritNext()}});
-A.rchoose=d=>{const s=stu();s.cur.rid=d.id;save();const r=S.reinf.find(x=>x.id===d.id);say('Je travaille pour : '+r.label);ritNext()};
+A.rchoose=d=>{const s=stu();s.cur.rid=d.id;s.cur.t=0;s.cur.next=false;s.cur.day=today();save();const r=S.reinf.find(x=>x.id===d.id);say('Je travaille pour : '+r.label);ritNext()};
 A.tokens=()=>go('tokens');
-A.setrein=d=>{const s=stu();s.cur.rid=d.id;save();go('tokens')};
+A.setrein=d=>{const s=stu();s.cur.rid=d.id;s.cur.next=false;s.cur.day=today();save();go('tokens')};
 A.chrein=()=>{const s=stu();openSheet(`<h2>Je travaille pour…</h2>${reinfGrid(s,'setrein')}`)};
 A.task=()=>{openSheet(`<h2>D'abord, je fais…</h2><div class="rgrid">${TASKS.map(([i,l])=>`<button class="rc" data-act="settask" data-i="${i}" data-l="${esc(l)}"><span class="rv">${i}</span>${l}</button>`).join('')}<button class="rc" data-act="settask" data-other="1"><span class="rv">✍️</span>Autre…</button></div>`)};
 A.settask=d=>{const s=stu();if(d.other){const l=prompt('Travail à faire :');if(!l)return;s.cur.task={icon:'📝',label:l.trim()}}else s.cur.task={icon:d.i,label:d.l};save();go('tokens')};
 A.token=()=>giveToken();
 A.work=d=>{const s=stu();s.workMin=+d.m;save();document.querySelectorAll('[data-act="work"]').forEach(b=>b.classList.toggle('on',b.dataset.m===d.m));mountWork(+d.m,true)};
 A.startreward=()=>{closeSheet();go('reward')};
-A.endreward=()=>{const s=stu();s.cur.t=0;s.cur.rid=null;save();go('tokens')};
+A.endreward=()=>{const s=stu();s.cur.t=0;s.cur.rid=null;s.cur.next=false;save();go('tokens')};
 A.program=()=>go('program');
 A.pdone=d=>{const s=stu(),p=s.program.find(x=>x.id===d.id);p.done=!p.done;save();if(p.done)sndToken();go('program')};
 A.timer=()=>go('timer');
